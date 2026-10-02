@@ -1,61 +1,41 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Clock3, Gauge, Wrench, TrendingUp } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useState } from "react";
+import { ArrowUpRight, Gauge, MapPin, Search, Factory, TriangleAlert } from "lucide-react";
+import type { Section } from "@/app/page";
 
-const throughputData = [
-  { time: "06:00", output: 420 }, { time: "08:00", output: 610 }, { time: "10:00", output: 580 },
-  { time: "12:00", output: 740 }, { time: "14:00", output: 680 }, { time: "16:00", output: 810 }, { time: "18:00", output: 760 },
+const machines = [
+  { id: "BL-5702", name: "Product Blower", area: "Process bay", status: "Running", health: "98.6%", oee: "96.4%", temp: "58°C", x: "24%", y: "32%" },
+  { id: "HE-3301", name: "Feed / Effluent Heat Exchanger", area: "Heat bay", status: "Running", health: "94.2%", oee: "92.1%", temp: "71°C", x: "54%", y: "27%" },
+  { id: "PM-4405B", name: "Cooling Water Pump", area: "Utilities bay", status: "Attention", health: "87.3%", oee: "84.8%", temp: "82°C", x: "76%", y: "38%" },
+  { id: "KO-3201", name: "Cracked Gas Compressor", area: "Compression bay", status: "Running", health: "96.8%", oee: "94.7%", temp: "63°C", x: "39%", y: "71%" },
+  { id: "PU-2101B", name: "Feed Charge Pump", area: "Pump bay", status: "Idle", health: "91.3%", oee: "89.4%", temp: "49°C", x: "72%", y: "72%" },
 ];
+const bottomMetrics = [["Production", "92.4%", "+2.1%"], ["OEE", "87.0%", "+3.4%"], ["Downtime", "4.2 h", "-12.5%"], ["Active issues", "12", "3 new"]];
+interface OverviewContentProps { onNavigate: (section: Section) => void; }
 
-const metrics = [
-  { label: "Line efficiency", value: "94.8%", change: "+2.4%", icon: Gauge },
-  { label: "Units produced", value: "4,820", change: "+8.6%", icon: TrendingUp },
-  { label: "Equipment uptime", value: "98.2%", change: "+0.8%", icon: CheckCircle2 },
-  { label: "Open incidents", value: "03", change: "2 high", icon: AlertTriangle },
-  { label: "Avg. cycle time", value: "42.6s", change: "-3.1s", icon: Clock3 },
-];
-
-const equipmentKpis = [
-  { name: "Assembly Robot A1", status: "Running", kpi: "98.6%", label: "OEE", detail: "412 units/hr", color: "bg-[#1257c7]" },
-  { name: "Conveyor Line 03", status: "Running", kpi: "96.2%", label: "Uptime", detail: "38.4s cycle", color: "bg-[#09a7d5]" },
-  { name: "Vision QA Station", status: "Attention", kpi: "91.8%", label: "Pass rate", detail: "2 alerts today", color: "bg-[#f0a23a]" },
-  { name: "Packaging Cell P2", status: "Running", kpi: "94.4%", label: "Efficiency", detail: "286 units/hr", color: "bg-[#5c8ce8]" },
-  { name: "CNC Mill M04", status: "Idle", kpi: "87.9%", label: "Availability", detail: "Changeover ready", color: "bg-[#91b1ed]" },
-];
-
-const incidents = [
-  { id: "PL-2047", title: "Conveyor motor temperature high", line: "Line 03 · Assembly", severity: "High", time: "12 min ago" },
-  { id: "PL-2046", title: "Vision inspection station offline", line: "Line 01 · Quality", severity: "Medium", time: "28 min ago" },
-];
-
-export function OverviewContent() {
-  return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-[#dce7f7] bg-[#f4f7fc] px-7 py-6">
-        <div className="flex items-end justify-between gap-4">
-          <div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#1257c7]">Plant 01 / Shift B</p><h2 className="text-3xl font-semibold tracking-tight text-[#082f80]">Production line command center</h2><p className="mt-2 text-sm text-[#587091]">Live status across assembly, quality, and packaging operations.</p></div>
-          <div className="hidden text-right sm:block"><p className="text-xs uppercase tracking-wider text-[#7690b6]">Last synchronized</p><p className="mt-1 text-sm font-semibold text-[#173e82]">Today, 14:42:18</p></div>
+export function OverviewContent({ onNavigate }: OverviewContentProps) {
+  const [selectedId, setSelectedId] = useState("BL-5702");
+  const selected = machines.find((machine) => machine.id === selectedId) ?? machines[0];
+  return <div className="min-h-full space-y-5 bg-[#f4f6fa] p-2 text-[#172337] sm:p-4">
+    <section className="flex flex-wrap items-end justify-between gap-4 px-1 pt-1 sm:px-2"><div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#5f7896]"><MapPin className="h-3.5 w-3.5 text-[#1f9abf]" />Plant A — West Jakarta</p><h2 className="mt-1 text-2xl font-bold tracking-tight text-[#15243a]">Live factory view</h2><p className="mt-1 text-sm text-[#718198]">Production floor status · Oct 1, 2026 · 14:32</p></div><div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-xl border border-[#d7dee9] bg-white px-3 py-2 text-sm text-[#8290a3] lg:flex"><Search className="h-4 w-4" />Search equipment, problem, or insight...</div><button type="button" className="rounded-xl border border-[#d7dee9] bg-white px-4 py-2 text-sm font-medium text-[#45576f]">Today⌄</button><button type="button" className="rounded-xl border border-[#d7dee9] bg-white px-4 py-2 text-sm font-medium text-[#45576f]">All shifts⌄</button></div></section>
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
+      <div className="relative min-h-[570px] overflow-hidden rounded-[22px] border border-[#ccd7e2] bg-[#dbe3ea] p-3 shadow-[0_14px_36px_rgba(36,58,84,0.10)] sm:p-6">
+        <div className="absolute inset-0 opacity-35" style={{ backgroundImage: "linear-gradient(#b7c5d1 1px, transparent 1px), linear-gradient(90deg, #b7c5d1 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+        <div className="relative h-[518px] overflow-hidden rounded-xl border-[10px] border-[#b6c3ce] bg-[#eff3f5] shadow-[inset_0_0_0_2px_#ffffff]">
+          <div className="absolute left-[5%] top-[8%] h-[37%] w-[39%] rounded-lg border-4 border-[#aab9c5] bg-[#d9e2e8] shadow-[inset_0_0_0_3px_#edf3f6]"><span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Process bay</span><div className="absolute bottom-8 left-8 h-16 w-24 rounded border-2 border-[#aebdc8] bg-[#c4d1d9]" /><div className="absolute bottom-10 right-8 h-20 w-14 rounded border-2 border-[#aebdc8] bg-[#c4d1d9]" /></div>
+          <div className="absolute right-[5%] top-[8%] h-[37%] w-[42%] rounded-lg border-4 border-[#aab9c5] bg-[#e2e9ed] shadow-[inset_0_0_0_3px_#f4f7f8]"><span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Heat & utilities</span><div className="absolute bottom-8 left-8 h-12 w-20 rounded border-2 border-[#aebdc8] bg-[#cbd7de]" /><div className="absolute bottom-8 right-10 h-16 w-16 rounded-full border-4 border-[#aebdc8] bg-[#d0dbe1]" /></div>
+          <div className="absolute bottom-[8%] left-[5%] h-[38%] w-[43%] rounded-lg border-4 border-[#aab9c5] bg-[#e4eaed] shadow-[inset_0_0_0_3px_#f6f8f9]"><span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Compression bay</span><div className="absolute bottom-8 left-8 h-14 w-28 rounded-full border-2 border-[#aebdc8] bg-[#cbd7de]" /><div className="absolute bottom-8 right-10 h-14 w-20 rounded border-2 border-[#aebdc8] bg-[#cbd7de]" /></div>
+          <div className="absolute bottom-[8%] right-[5%] h-[38%] w-[35%] rounded-lg border-4 border-[#aab9c5] bg-[#d9e3e8] shadow-[inset_0_0_0_3px_#edf3f6]"><span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Pump bay</span><div className="absolute bottom-8 left-8 h-16 w-12 rounded-full border-4 border-[#aebdc8] bg-[#c6d3da]" /><div className="absolute bottom-8 right-8 h-12 w-16 rounded border-2 border-[#aebdc8] bg-[#c6d3da]" /></div>
+          <div className="absolute left-1/2 top-1/2 h-3/4 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#b7c7d2]" />
+          {machines.map((machine) => <button key={machine.id} type="button" onClick={() => setSelectedId(machine.id)} className={`group absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white p-1.5 shadow-[0_4px_14px_rgba(18,87,199,0.35)] transition-all duration-300 hover:scale-125 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#178ee5]/30 ${selected.id === machine.id ? "scale-125 bg-[#178ee5]" : machine.status === "Attention" ? "bg-[#edac28]" : "bg-[#326b9f]"}`} style={{ left: machine.x, top: machine.y }} aria-label={`Open ${machine.name}`}><span className="block h-3 w-3 rounded-full bg-white" /><span className="pointer-events-none absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-[#1c2c3f] px-2.5 py-1.5 text-[10px] font-semibold text-white shadow-lg">{machine.id}</span></button>)}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-white/90 px-3 py-2 text-xs font-medium text-[#62748a] shadow-sm">Click a machine marker to inspect equipment</div>
         </div>
-      </section>
-      <div className="h-2 rounded-full bg-gradient-to-r from-[#082f80] via-[#1257c7] to-[#8eaff0]" />
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-        {metrics.map(({ label, value, change, icon: Icon }) => <article key={label} className="rounded-2xl border border-[#dce7f7] bg-white p-5 shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="flex items-start justify-between gap-3"><div className="rounded-xl bg-[#eef4ff] p-2.5 text-[#1257c7]"><Icon className="h-5 w-5" /></div><span className="text-xs font-semibold text-[#1257c7]">{change}</span></div><p className="mt-5 text-2xl font-semibold tracking-tight text-[#082f80]">{value}</p><p className="mt-1 text-sm text-[#6c83a4]">{label}</p></article>)}
-      </section>
-      <section className="rounded-2xl border border-[#dce7f7] bg-white p-6 shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="mb-5 flex items-center justify-between"><div><h3 className="text-base font-semibold text-[#082f80]">Production output</h3><p className="mt-1 text-sm text-[#6c83a4]">Units completed by hour across all active lines</p></div><span className="rounded-lg bg-[#eef4ff] px-3 py-2 text-xs font-semibold text-[#1257c7]">Target: 700 units/hr</span></div><div className="h-[220px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={throughputData}><defs><linearGradient id="productionGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1257c7" stopOpacity={0.26} /><stop offset="95%" stopColor="#1257c7" stopOpacity={0.02} /></linearGradient></defs><CartesianGrid stroke="#e8eef8" strokeDasharray="4 4" /><XAxis dataKey="time" tick={{ fill: "#7890b2", fontSize: 12 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#7890b2", fontSize: 12 }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ border: "1px solid #dce7f7", borderRadius: 12, boxShadow: "0 8px 24px rgba(8,47,128,0.1)" }} /><Area type="monotone" dataKey="output" stroke="#1257c7" strokeWidth={3} fill="url(#productionGradient)" /></AreaChart></ResponsiveContainer></div></section>
-      <section aria-labelledby="equipment-kpis" className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
-          <div><h3 id="equipment-kpis" className="text-base font-semibold text-[#082f80]">Equipment KPIs</h3><p className="mt-1 text-sm text-[#6c83a4]">Performance snapshot for each active asset</p></div>
-          <span className="hidden text-xs font-semibold text-[#7690b6] sm:block">5 monitored assets</span>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {equipmentKpis.map((equipment) => <article key={equipment.name} className="rounded-2xl border border-[#dce7f7] bg-white p-5 shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="flex items-center justify-between gap-3"><div className={`h-2.5 w-2.5 rounded-full ${equipment.color}`} /><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7890b2]">{equipment.status}</span></div><h4 className="mt-4 min-h-10 text-sm font-semibold leading-5 text-[#173e82]">{equipment.name}</h4><p className="mt-4 text-2xl font-semibold tracking-tight text-[#082f80]">{equipment.kpi}</p><p className="mt-1 text-xs font-medium text-[#6c83a4]">{equipment.label}</p><div className="mt-4 border-t border-[#edf2fa] pt-3 text-xs text-[#7890b2]">{equipment.detail}</div></article>)}
-        </div>
-      </section>
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-        <article className="rounded-2xl border border-[#dce7f7] bg-white p-6 shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="mb-5 flex items-center justify-between"><div><h3 className="text-base font-semibold text-[#082f80]">Open production incidents</h3><p className="mt-1 text-sm text-[#6c83a4]">Events requiring attention on the floor</p></div><span className="rounded-full bg-[#fff2f2] px-3 py-1 text-xs font-semibold text-[#bf3d4b]">3 open</span></div><div className="space-y-3">{incidents.map((incident) => <div key={incident.id} className="rounded-xl border border-[#e7edf7] bg-[#f8faff] p-4"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-[#173e82]">{incident.title}</p><p className="mt-1 text-xs text-[#7890b2]">{incident.line}</p></div><span className="rounded-full bg-[#fff0f0] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#bf3d4b]">{incident.severity}</span></div><div className="mt-4 flex items-center justify-between text-xs text-[#7890b2]"><span className="font-mono">{incident.id}</span><span>{incident.time}</span></div></div>)}</div></article>
-        <article className="rounded-2xl border border-[#dce7f7] bg-white p-6 shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="mb-5 flex items-center justify-between"><div><h3 className="text-base font-semibold text-[#082f80]">Line alerts</h3><p className="mt-1 text-sm text-[#6c83a4]">Automated checks from connected equipment</p></div><Wrench className="h-5 w-5 text-[#5c8ce8]" /></div><div className="space-y-4">{["Packaging line scheduled maintenance", "Line 02 material replenishment", "Quality gate calibration due"].map((alert, index) => <div key={alert} className="flex items-center gap-3 border-b border-[#edf2fa] pb-4 last:border-0 last:pb-0"><span className={`h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-[#1257c7]" : index === 1 ? "bg-[#09a7d5]" : "bg-[#91b1ed]"}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-[#173e82]">{alert}</p><p className="mt-1 text-xs text-[#7890b2]">{index === 0 ? "Due in 2 hours" : index === 1 ? "Material level at 18%" : "Due tomorrow"}</p></div></div>)}</div></article>
-      </section>
-    </div>
-  );
+      </div>
+      <aside className="rounded-2xl border border-[#d7dee9] bg-white p-5 shadow-[0_10px_28px_rgba(36,58,84,0.08)]"><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7c8ca2]">Selected equipment</p><h3 className="mt-2 text-xl font-bold text-[#15243a]">{selected.id}</h3><p className="mt-1 text-sm text-[#718198]">{selected.name}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${selected.status === "Attention" ? "bg-[#fff4d9] text-[#ad7412]" : "bg-[#e4f7ef] text-[#16865d]"}`}>{selected.status}</span></div><div className="my-5 flex h-36 items-center justify-center rounded-xl bg-[#eff3f7]"><Factory className="h-20 w-20 text-[#8fa3b7]" /></div><div className="space-y-3 text-sm"><div className="flex justify-between border-b border-[#edf0f4] pb-3"><span className="text-[#7c8ca2]">Area</span><strong>{selected.area}</strong></div><div className="flex justify-between border-b border-[#edf0f4] pb-3"><span className="text-[#7c8ca2]">OEE</span><strong className="text-[#e45c63]">{selected.oee}</strong></div><div className="flex justify-between border-b border-[#edf0f4] pb-3"><span className="text-[#7c8ca2]">Temperature</span><strong>{selected.temp}</strong></div><div className="flex justify-between"><span className="text-[#7c8ca2]">Health</span><strong className="text-[#16865d]">{selected.health}</strong></div></div><button type="button" onClick={() => onNavigate("equipment")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#233c58] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172d45]">View equipment details <ArrowUpRight className="h-4 w-4" /></button></aside>
+    </section>
+    <section className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]"><div className="rounded-2xl border border-[#d7dee9] bg-white p-5"><div className="mb-4 flex items-center gap-2"><Gauge className="h-4 w-4 text-[#1f9abf]" /><h3 className="font-bold text-[#24364c]">Plant performance</h3></div><div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{bottomMetrics.map(([label, value, change]) => <div key={label}><p className="text-xs text-[#8492a5]">{label}</p><p className="mt-1 text-xl font-bold text-[#253a54]">{value}</p><p className={`mt-1 text-xs font-semibold ${label === "Downtime" || label === "Active issues" ? "text-[#ef626c]" : "text-[#26a26f]"}`}>{change}</p></div>)}</div></div><div className="rounded-2xl border border-[#d7dee9] bg-white p-5"><div className="flex items-center justify-between"><h3 className="font-bold text-[#24364c]">Production output</h3><span className="text-xs text-[#8492a5]">Today</span></div><div className="mt-5 flex h-20 items-end gap-1">{[34,40,42,55,48,61,58,73,66,78,69,82,76,88,79,91,84,93,77,86].map((height, index) => <div key={index} className="flex-1 rounded-t bg-[#76b8df]" style={{ height: `${height}%` }} />)}</div></div><div className="rounded-2xl border border-[#d7dee9] bg-white p-5"><div className="flex items-center justify-between"><h3 className="font-bold text-[#24364c]">Active alerts</h3><span className="text-xs font-semibold text-[#238dc0]">View all →</span></div><div className="mt-4 space-y-3 text-xs text-[#586b82]"><p><TriangleAlert className="mr-2 inline h-3.5 w-3.5 text-[#ef626c]" />{selected.id} — Temperature high</p><p><TriangleAlert className="mr-2 inline h-3.5 w-3.5 text-[#ef626c]" />Line 03 — Unexpected stop</p><p><TriangleAlert className="mr-2 inline h-3.5 w-3.5 text-[#f2ba29]" />Press-02 — Vibration anomaly</p></div></div></section>
+  </div>;
 }
+
+export default OverviewContent;

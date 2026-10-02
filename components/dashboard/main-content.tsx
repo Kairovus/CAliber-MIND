@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 
 interface MainContentProps {
   activeSection: Section;
+  onSectionChange: (section: Section) => void;
 }
 
 const sectionConfig: Record<Section, { title: string; subtitle: string }> = {
@@ -31,13 +32,13 @@ const sectionConfig: Record<Section, { title: string; subtitle: string }> = {
   },
 };
 
-export function MainContent({ activeSection }: MainContentProps) {
+export function MainContent({ activeSection, onSectionChange }: MainContentProps) {
   const config = sectionConfig[activeSection];
 
   const renderContent = () => {
     switch (activeSection) {
       case "overview":
-        return <OverviewContent />;
+        return <OverviewContent onNavigate={onSectionChange} />;
       case "incidents":
         return <IncidentsContent />;
       case "equipment":
@@ -45,7 +46,7 @@ export function MainContent({ activeSection }: MainContentProps) {
       case "insights":
         return <PerformanceContent />;
       default:
-        return <OverviewContent />;
+        return <OverviewContent onNavigate={onSectionChange} />;
     }
   };
 
