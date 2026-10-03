@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -16,8 +18,6 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -56,23 +56,37 @@ const chartData = [
 
 const prompts = ["Is vibration within the normal range?", "What should I inspect next?", "Summarize this machine's health"];
 
+const greeting = "I’m monitoring the equipment. Ask me about its signals, alerts, or recommended operator checks.";
+
 export function ServicesContent() {
   const [selectedMachine, setSelectedMachine] = useState(machines[0]);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([
-    { role: "assistant", text: "I’m monitoring BL-5702. Ask me about its signals, alerts, or recommended operator checks." },
-  ]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
+  });
+
+  const isLoading = status === "submitted" || status === "streaming";
 
   const machineContext = useMemo(() => `${selectedMachine.name} ${selectedMachine.id}`, [selectedMachine]);
 
-  function sendMessage(nextMessage = message) {
-    const trimmed = nextMessage.trim();
-    if (!trimmed) return;
-    setMessages((current) => [
-      ...current,
-      { role: "user", text: trimmed },
-      { role: "assistant", text: `${machineContext} is currently ${selectedMachine.status.toLowerCase()}. Vibration is 42.8 MM/S and discharge pressure is 61.4 BAR. I recommend checking the latest bearing trend during the next operator round.` },
-    ]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, status]);
+
+  function send(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isLoading) return;
+    sendMessage(
+      { text: trimmed },
+      { body: { machineId: selectedMachine.id, machineName: selectedMachine.name } }
+    );
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    send(message);
     setMessage("");
   }
 
@@ -99,7 +113,95 @@ export function ServicesContent() {
           </section>
         </div>
 
-        <aside className="flex min-h-[560px] flex-col rounded-2xl border border-[#dce7f7] bg-white shadow-[0_8px_24px_rgba(8,47,128,0.06)]"><div className="flex items-center gap-3 border-b border-[#edf2fa] p-5"><div className="rounded-xl bg-[#1257c7] p-2.5 text-white"><Bot className="h-5 w-5" /></div><div><h2 className="font-semibold text-[#082f80]">Equipment AI</h2><p className="text-xs text-[#7890b2]">Context: {machineContext}</p></div></div><div className="flex-1 space-y-3 overflow-y-auto p-4">{messages.map((item, index) => <div key={`${item.role}-${index}`} className={`max-w-[92%] rounded-xl px-3 py-2.5 text-sm leading-5 ${item.role === "user" ? "ml-auto bg-[#1257c7] text-white" : "bg-[#f3f7fd] text-[#31527f]"}`}>{item.text}</div>)}<div className="pt-2"><p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[#7890b2]"><MessageSquare className="h-3 w-3" />Suggested questions</p><div className="space-y-2">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => sendMessage(prompt)} className="w-full rounded-lg border border-[#e3ebf7] px-3 py-2 text-left text-xs text-[#31527f] hover:border-[#91b1ed] hover:bg-[#f8faff]">{prompt}</button>)}</div></div></div><form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} className="border-t border-[#edf2fa] p-4"><div className="flex items-center gap-2 rounded-xl border border-[#dce7f7] bg-[#f8faff] p-2"><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ask about this machine..." className="min-w-0 flex-1 bg-transparent px-2 text-sm text-[#173e82] outline-none placeholder:text-[#9aadc5]" aria-label="Ask Equipment AI" /><button type="submit" aria-label="Send message" className="rounded-lg bg-[#1257c7] p-2 text-white hover:bg-[#0b449e]"><Send className="h-4 w-4" /></button></div></form></aside>
+        <aside className="flex min-h-[560px] flex-col rounded-2xl border border-[#dce7f7] bg-white shadow-[0_8px_24px_rgba(8,47,128,0.06)]">
+          <div className="flex items-center gap-3 border-b border-[#edf2fa] p-5">
+            <div className="rounded-xl bg-[#1257c7] p-2.5 text-white"><Bot className="h-5 w-5" /></div>
+            <div>
+              <h2 className="font-semibold text-[#082f80]">Equipment AI</h2>
+              <p className="text-xs text-[#7890b2]">Context: {machineContext}</p>
+            </div>
+            {isLoading && (
+              <div className="ml-auto flex items-center gap-1.5 text-[10px] text-[#1257c7]">
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-[#1257c7]" style={{ animationDelay: '0ms' }} />
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-[#1257c7]" style={{ animationDelay: '150ms' }} />
+                <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-[#1257c7]" style={{ animationDelay: '300ms' }} />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                ⚠ AI error: {error.message}. Please try again.
+              </div>
+            )}
+            <div className="max-w-[92%] rounded-xl bg-[#f3f7fd] px-3 py-2.5 text-sm leading-5 whitespace-pre-wrap text-[#31527f]">
+              {greeting}
+            </div>
+            {messages.map((item) => {
+              const text = item.parts
+                .map((part) => (part.type === "text" ? part.text : ""))
+                .join("");
+              if (!text) return null;
+              return (
+                <div
+                  key={item.id}
+                  className={`max-w-[92%] rounded-xl px-3 py-2.5 text-sm leading-5 whitespace-pre-wrap ${item.role === "user"
+                      ? "ml-auto bg-[#1257c7] text-white"
+                      : "bg-[#f3f7fd] text-[#31527f]"
+                    }`}
+                >
+                  {text}
+                </div>
+              );
+            })}
+            {status === "submitted" && (
+              <div className="max-w-[92%] rounded-xl bg-[#f3f7fd] px-3 py-2.5 text-sm text-[#7890b2] italic">
+                Thinking...
+              </div>
+            )}
+            <div className="pt-2">
+              <p className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[#7890b2]">
+                <MessageSquare className="h-3 w-3" />Suggested questions
+              </p>
+              <div className="space-y-2">
+                {prompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => send(prompt)}
+                    disabled={isLoading}
+                    className="w-full rounded-lg border border-[#e3ebf7] px-3 py-2 text-left text-xs text-[#31527f] hover:border-[#91b1ed] hover:bg-[#f8faff] disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div ref={bottomRef} />
+          </div>
+
+          <form onSubmit={handleSubmit} className="border-t border-[#edf2fa] p-4">
+            <div className="flex items-center gap-2 rounded-xl border border-[#dce7f7] bg-[#f8faff] p-2">
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Ask about this machine..."
+                className="min-w-0 flex-1 bg-transparent px-2 text-sm text-[#173e82] outline-none placeholder:text-[#9aadc5]"
+                aria-label="Ask Equipment AI"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                aria-label="Send message"
+                disabled={isLoading || !message.trim()}
+                className="rounded-lg bg-[#1257c7] p-2 text-white hover:bg-[#0b449e] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
+        </aside>
       </div>
     </div>
   );

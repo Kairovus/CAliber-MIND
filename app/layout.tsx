@@ -4,19 +4,19 @@ import { DM_Sans, Source_Serif_4, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const dmSans = DM_Sans({ 
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: '--font-dm-sans',
   display: 'swap',
 });
 
-const sourceSerif = Source_Serif_4({ 
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   variable: '--font-source-serif',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({ 
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: '--font-jetbrains',
   display: 'swap',
