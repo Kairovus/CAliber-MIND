@@ -5,6 +5,7 @@ import type { Section } from "@/app/page";
 import {
   LayoutDashboard,
   AlertTriangle,
+  Bell,
   Factory,
   Lightbulb,
   Search,
@@ -30,6 +31,7 @@ interface NavItem {
 const mainMenu: NavItem[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
   { id: "equipment", label: "Equipment", icon: Factory },
+  { id: "alerts", label: "Alerts", icon: Bell, badge: 3, badgeColor: "red" },
   { id: "incidents", label: "Incidents", icon: AlertTriangle, badge: 3, badgeColor: "red" },
   { id: "insights", label: "Insights", icon: Lightbulb },
 ];
@@ -93,7 +95,7 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
             <p className="text-sm font-medium text-foreground truncate">John Doe</p>
             <p className="text-xs text-blue-100/70 truncate">SRE Lead</p>
           </div>
-          <button 
+          <button
             type="button"
             className="p-1.5 rounded-lg hover:bg-muted transition-colors"
             aria-label="Toggle theme"
@@ -114,13 +116,13 @@ interface NavButtonProps {
 
 function NavButton({ item, isActive, onClick }: NavButtonProps) {
   const Icon = item.icon;
-  
+
   const badgeColorClass = {
     red: "bg-destructive/15 text-destructive",
     yellow: "bg-warning/20 text-warning",
     green: "bg-success/15 text-success",
   };
-  
+
   return (
     <button
       type="button"
@@ -141,7 +143,7 @@ function NavButton({ item, isActive, onClick }: NavButtonProps) {
             "text-xs font-medium px-2 py-0.5 rounded-full",
             isActive
               ? "bg-primary-foreground/20 text-primary-foreground"
-              : item.badgeColor 
+              : item.badgeColor
                 ? badgeColorClass[item.badgeColor]
                 : "bg-muted text-blue-100/70"
           )}

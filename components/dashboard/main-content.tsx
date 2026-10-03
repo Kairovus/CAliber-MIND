@@ -3,6 +3,7 @@
 import type { Section } from "@/app/page";
 import { OverviewContent } from "./content/overview-content";
 import { IncidentsContent } from "./content/incidents-content";
+import { AlertsContent } from "./content/alerts-content";
 import { PerformanceContent } from "./content/performance-content";
 import { ServicesContent } from "./content/services-content";
 import { Bell, Calendar, RefreshCw, Plus, AlertCircle } from "lucide-react";
@@ -21,6 +22,10 @@ const sectionConfig: Record<Section, { title: string; subtitle: string }> = {
   equipment: {
     title: "Equipment",
     subtitle: "Machine health across the production floor",
+  },
+  alerts: {
+    title: "Alerts",
+    subtitle: "Machine alerts, ownership, and recommended actions",
   },
   incidents: {
     title: "Incidents",
@@ -43,6 +48,8 @@ export function MainContent({ activeSection, onSectionChange }: MainContentProps
         return <IncidentsContent />;
       case "equipment":
         return <ServicesContent />;
+      case "alerts":
+        return <AlertsContent />;
       case "insights":
         return <PerformanceContent />;
       default:
@@ -79,6 +86,7 @@ export function MainContent({ activeSection, onSectionChange }: MainContentProps
             type="button"
             className="relative p-2 rounded-xl hover:bg-muted transition-colors"
             aria-label="Alerts"
+            onClick={() => onSectionChange("alerts")}
           >
             <Bell className="w-5 h-5 text-muted-foreground" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full animate-pulse" />
