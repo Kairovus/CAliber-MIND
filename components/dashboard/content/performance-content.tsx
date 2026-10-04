@@ -89,18 +89,13 @@ type RootCauseFinding = {
   action: string;
 };
 
-type RootCauseAction = {
-  machineId: string;
-  title: string;
-  reason: string;
-  action: string;
-};
-
 type RootCauseInsights = {
   highRisk: RootCauseFinding[];
+  mediumRisk: RootCauseFinding[];
   lowRisk: RootCauseFinding[];
-  recommendedActions: RootCauseAction[];
 };
+
+type RootCauseLevel = keyof RootCauseInsights;
 
 type RootCauseResponse = {
   generatedAt: string;
@@ -176,16 +171,6 @@ function isRootCauseFinding(value: unknown): value is RootCauseFinding {
   );
 }
 
-function isRootCauseAction(value: unknown): value is RootCauseAction {
-  return (
-    isDataRow(value) &&
-    typeof value.machineId === "string" &&
-    typeof value.title === "string" &&
-    typeof value.reason === "string" &&
-    typeof value.action === "string"
-  );
-}
-
 function isRootCauseResponse(value: unknown): value is RootCauseResponse {
   if (!isDataRow(value) || !isDataRow(value.insights)) return false;
   return (
@@ -194,10 +179,10 @@ function isRootCauseResponse(value: unknown): value is RootCauseResponse {
     typeof value.thresholds === "string" &&
     Array.isArray(value.insights.highRisk) &&
     value.insights.highRisk.every(isRootCauseFinding) &&
+    Array.isArray(value.insights.mediumRisk) &&
+    value.insights.mediumRisk.every(isRootCauseFinding) &&
     Array.isArray(value.insights.lowRisk) &&
-    value.insights.lowRisk.every(isRootCauseFinding) &&
-    Array.isArray(value.insights.recommendedActions) &&
-    value.insights.recommendedActions.every(isRootCauseAction)
+    value.insights.lowRisk.every(isRootCauseFinding)
   );
 }
 
@@ -261,9 +246,10 @@ function formatDate(value: unknown): string {
   if (typeof value !== "string" || value.trim() === "") return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("id-ID", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Asia/Jakarta",
   }).format(date);
 }
 
@@ -370,6 +356,7 @@ export function PerformanceContent() {
   const [rootCauseLoading, setRootCauseLoading] = useState(true);
   const [rootCauseError, setRootCauseError] = useState<string | null>(null);
   const [rootCauseRefresh, setRootCauseRefresh] = useState(0);
+  const [rootCauseLevel, setRootCauseLevel] = useState<RootCauseLevel>("highRisk");
 
   const machine = machines.find((item) => item.id === selectedMachine) ?? machines[0];
   const snapshot = snapshots[selectedMachine] ?? {
@@ -710,8 +697,123 @@ export function PerformanceContent() {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-        <div className="space-y-6">
+      <aside className="flex h-[min(900px,max(420px,76vh))] max-h-[min(900px,max(420px,76vh))] flex-col overflow-hidden rounded-2xl border-2 border-[#1257c7] bg-white shadow-[0_16px_40px_rgba(18,87,199,0.14)]">
+        <div className="shrink-0 border-b border-[#dce7f7] bg-[#f8faff] px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1257c7] text-white">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#1257c7]">
+                  Priority analysis
+                </div>
+                <h2 className="mt-1 text-xl font-bold text-[#082f80]">Root-cause insights</h2>
+                <p className="mt-1 text-sm text-[#45648d]">
+                  AI review across all five machines, based on production and performance data
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRootCauseRefresh((refresh) => refresh + 1)}
+              disabled={rootCauseLoading}
+              aria-label="Refresh root-cause insights"
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-[#b9ccec] bg-white px-3 py-2 text-sm font-semibold text-[#1257c7] hover:bg-[#eef4ff] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${rootCauseLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+          <p className="mt-4 max-w-5xl text-sm leading-6 text-[#365477]">
+            Reviews the latest 10 production records, tag typical values, and latest 10 weekly
+            performance records per machine. Screening thresholds are project heuristics, not
+            validated plant alarm limits.
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+          {rootCauseLoading && (
+            <div className="rounded-xl border border-[#dce7f7] bg-[#f6f9fe] p-6 text-base text-[#365477]">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="h-5 w-5 animate-spin text-[#1257c7]" />
+                Reading machine data and generating recommendations…
+              </div>
+            </div>
+          )}
+          {rootCauseError && (
+            <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-5">
+              <p className="text-base font-bold text-red-900">Could not generate insights</p>
+              <p className="mt-2 text-sm leading-6 text-red-800">{rootCauseError}</p>
+              <button
+                type="button"
+                onClick={() => setRootCauseRefresh((refresh) => refresh + 1)}
+                className="mt-4 rounded-lg border border-red-400 bg-white px-4 py-2 text-sm font-semibold text-red-900 hover:bg-red-100"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!rootCauseLoading && rootCause && (
+            <>
+              <div className="mb-5 rounded-lg border border-[#dce7f7] bg-[#f8faff] px-4 py-3 text-xs leading-5 text-[#45648d]">
+                {rootCause.window}. Generated {formatDate(rootCause.generatedAt)}. {rootCause.thresholds}.
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter root-cause risk level">
+                {([
+                  ["highRisk", "High risk", "border-red-300 bg-red-50 text-red-900"],
+                  ["mediumRisk", "Medium risk", "border-amber-300 bg-amber-50 text-amber-900"],
+                  ["lowRisk", "Low risk", "border-[#b9ccec] bg-[#eef4ff] text-[#0b459e]"],
+                ] as const).map(([level, label, tone]) => {
+                  const selected = rootCauseLevel === level;
+                  const items = rootCause.insights[level];
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setRootCauseLevel(level)}
+                      aria-pressed={selected}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition-colors ${
+                        selected ? `${tone} ring-2 ring-offset-1 ring-[#1257c7]` : "border-[#dce7f7] bg-white text-[#45648d] hover:bg-[#f6f9fe]"
+                      }`}
+                    >
+                      {label}
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#173e82]">
+                        {items.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <RootCauseGroup
+                title={
+                  rootCauseLevel === "highRisk"
+                    ? "High risk"
+                    : rootCauseLevel === "mediumRisk"
+                      ? "Medium risk"
+                      : "Low risk"
+                }
+                description={
+                  rootCauseLevel === "highRisk"
+                    ? "Large deviations requiring prompt human review"
+                    : rootCauseLevel === "mediumRisk"
+                      ? "Moderate deviations to investigate and monitor"
+                      : "Small deviations to keep under routine observation"
+                }
+                tone={rootCauseLevel === "highRisk" ? "high" : rootCauseLevel === "mediumRisk" ? "medium" : "low"}
+                items={rootCause.insights[rootCauseLevel]}
+              />
+              <p className="mt-5 flex items-start gap-2 text-xs leading-5 text-[#45648d]">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#b57616]" />
+                AI findings are screening suggestions, not confirmed diagnoses or instructions to
+                operate equipment.
+              </p>
+            </>
+          )}
+        </div>
+      </aside>
+
+      <section className="grid gap-4 xl:grid-cols-2">
           <div className="rounded-2xl border border-[#dce7f7] bg-white shadow-[0_8px_24px_rgba(8,47,128,0.06)]">
             <div className="flex items-center justify-between border-b border-[#edf2fa] p-5">
               <div>
@@ -818,91 +920,6 @@ export function PerformanceContent() {
               </table>
             </div>
           </div>
-        </div>
-
-        <aside className="rounded-2xl border-2 border-[#1257c7] bg-white p-5 shadow-[0_12px_32px_rgba(18,87,199,0.12)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1257c7] text-white">
-                <ShieldAlert className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-[#082f80]">Root-cause insights</h3>
-                <p className="text-xs text-[#7890b2]">AI review across all five machines</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setRootCauseRefresh((refresh) => refresh + 1)}
-              disabled={rootCauseLoading}
-              aria-label="Refresh root-cause insights"
-              className="rounded-lg border border-[#dce7f7] p-2 text-[#45648d] hover:bg-[#f6f9fe] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${rootCauseLoading ? "animate-spin" : ""}`} />
-            </button>
-          </div>
-          <p className="mt-3 text-xs leading-5 text-[#6c83a4]">
-            Reviews the latest 10 production records, tag typical values, and latest 10 weekly performance records per machine. Screening thresholds are project heuristics, not validated plant alarm limits.
-          </p>
-
-          {rootCauseLoading && (
-            <div className="mt-5 rounded-xl bg-[#f6f9fe] p-5 text-sm text-[#6c83a4]">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Reading machine data and generating recommendations…
-              </div>
-            </div>
-          )}
-          {rootCauseError && (
-            <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-semibold text-red-800">Could not generate insights</p>
-              <p className="mt-1 text-xs leading-5 text-red-700">{rootCauseError}</p>
-              <button
-                type="button"
-                onClick={() => setRootCauseRefresh((refresh) => refresh + 1)}
-                className="mt-3 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100"
-              >
-                Try again
-              </button>
-            </div>
-          )}
-          {!rootCauseLoading && rootCause && (
-            <>
-              <div className="mt-4 rounded-lg bg-[#f6f9fe] px-3 py-2 text-[10px] leading-4 text-[#7890b2]">
-                {rootCause.window}. Generated {formatDate(rootCause.generatedAt)}. {rootCause.thresholds}.
-              </div>
-              <div className="mt-4 space-y-4">
-                <RootCauseGroup
-                  title="High risk"
-                  description="Large deviations requiring prompt human review"
-                  tone="high"
-                  items={rootCause.insights.highRisk}
-                />
-                <RootCauseGroup
-                  title="Low risk"
-                  description="Smaller deviations to monitor"
-                  tone="low"
-                  items={rootCause.insights.lowRisk}
-                />
-                <RootCauseGroup
-                  title="Recommended action"
-                  description="AI-suggested follow-up checks"
-                  tone="action"
-                  items={rootCause.insights.recommendedActions.map((item) => ({
-                    machineId: item.machineId,
-                    title: item.title,
-                    evidence: item.reason,
-                    action: item.action,
-                  }))}
-                />
-              </div>
-              <p className="mt-4 flex items-start gap-2 text-[10px] leading-4 text-[#7890b2]">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                AI findings are screening suggestions, not confirmed diagnoses or instructions to operate equipment.
-              </p>
-            </>
-          )}
-        </aside>
       </section>
     </div>
   );
@@ -925,51 +942,51 @@ function RootCauseGroup({
 }: {
   title: string;
   description: string;
-  tone: "high" | "low" | "action";
+  tone: "high" | "medium" | "low";
   items: RootCauseFinding[];
 }) {
   const color =
     tone === "high"
       ? "border-red-200 bg-red-50 text-red-800"
-      : tone === "low"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-[#dce7f7] bg-[#f6f9fe] text-[#1257c7]";
+      : tone === "medium"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-[#dce7f7] bg-[#eef4ff] text-[#0b459e]";
 
   return (
-    <section className={`rounded-xl border p-3 ${color}`}>
+    <section className={`rounded-xl border p-4 ${color}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h4 className="text-sm font-bold">{title}</h4>
-          <p className="mt-1 text-[10px] leading-4 opacity-80">{description}</p>
+          <h4 className="text-base font-bold">{title}</h4>
+          <p className="mt-1 text-xs leading-5 opacity-90">{description}</p>
         </div>
-        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold">
+        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#173e82]">
           {items.length}
         </span>
       </div>
       {items.length === 0 ? (
-        <p className="mt-3 rounded-lg bg-white/70 p-3 text-xs leading-5 text-[#6c83a4]">
+        <p className="mt-3 rounded-lg border border-[#dce7f7] bg-white p-3 text-sm leading-6 text-[#365477]">
           {tone === "high"
             ? "No high-risk deviations detected in the available data."
-            : tone === "low"
-              ? "No low-risk deviations detected in the available data."
-              : "No recommendations returned."}
+            : tone === "medium"
+              ? "No medium-risk deviations detected in the available data."
+              : "No low-risk deviations detected in the available data."}
         </p>
       ) : (
         <div className="mt-3 space-y-2">
           {items.map((item, index) => (
             <article
               key={`${item.machineId}-${item.title}-${index}`}
-              className="rounded-lg border border-white/80 bg-white p-3"
+              className="rounded-lg border border-[#dce7f7] bg-white p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-md bg-[#eef4ff] px-2 py-0.5 text-[10px] font-bold text-[#1257c7]">
+                <span className="rounded-md bg-[#eaf1ff] px-2.5 py-1 text-xs font-bold text-[#0b459e]">
                   {item.machineId}
                 </span>
-                <h5 className="text-xs font-semibold text-[#173e82]">{item.title}</h5>
+                <h5 className="text-sm font-bold leading-5 text-[#082f80]">{item.title}</h5>
               </div>
-              <p className="mt-2 text-xs leading-5 text-[#45648d]">{item.evidence}</p>
-              <p className="mt-2 border-t border-[#edf2fa] pt-2 text-xs leading-5 text-[#173e82]">
-                <span className="font-semibold">Action: </span>
+              <p className="mt-3 text-sm leading-6 text-[#365477]">{item.evidence}</p>
+              <p className="mt-3 border-t border-[#dce7f7] pt-3 text-sm leading-6 text-[#173e82]">
+                <span className="font-bold text-[#082f80]">Action: </span>
                 {item.action}
               </p>
             </article>

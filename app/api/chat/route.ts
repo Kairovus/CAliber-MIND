@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       : 'No specific equipment selected.';
 
   const result = streamText({
-    model: google('gemini-3.8-flash'),
+    model: google('gemini-3.5-flash'),
     system: `You are a helpful AI assistant for an industrial equipment monitoring dashboard.
 ${machineContext}
 Answer questions about equipment health, signals, incidents, and recommended actions.

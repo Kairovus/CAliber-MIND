@@ -57,7 +57,7 @@ const insightSchema = z.object({
       action: z.string(),
     }),
   ).max(10),
-  lowRisk: z.array(
+  mediumRisk: z.array(
     z.object({
       machineId: z.string(),
       title: z.string(),
@@ -65,11 +65,11 @@ const insightSchema = z.object({
       action: z.string(),
     }),
   ).max(10),
-  recommendedActions: z.array(
+  lowRisk: z.array(
     z.object({
       machineId: z.string(),
       title: z.string(),
-      reason: z.string(),
+      evidence: z.string(),
       action: z.string(),
     }),
   ).max(10),
@@ -85,6 +85,17 @@ type InsightPayload = {
 
 let cachedInsights: { expiresAt: number; payload: InsightPayload } | null = null;
 let insightGeneration: Promise<z.infer<typeof insightSchema>> | null = null;
+
+function formatTimestamp(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Jakarta',
+  }).format(date);
+}
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -132,16 +143,16 @@ function findAbnormalities(
         continue;
       }
       const deviation = Math.abs(reading - typical) / Math.abs(typical);
-      if (deviation >= 0.1) {
+      if (deviation >= 0.05) {
         abnormalities.push({
           source: 'production',
           metric: `${prefix}_${suffix}`,
-          timestamp: productionRow.Timestamp,
+          timestamp: formatTimestamp(productionRow.Timestamp),
           reading,
           typicalValue: typical,
           deviationPercent: Number((deviation * 100).toFixed(1)),
-          level: deviation >= 0.25 ? 'high' : 'low',
-          rule: 'absolute deviation from typicalvalue; heuristic thresholds 10% warning and 25% high risk',
+          level: deviation >= 0.25 ? 'high' : deviation >= 0.1 ? 'medium' : 'low',
+          rule: 'absolute deviation from typicalvalue; project screening bands: 5-10% low, 10-25% medium, 25%+ high risk',
         });
       }
     }
@@ -165,16 +176,16 @@ function findAbnormalities(
       const center = median(previous);
       if (center === 0) continue;
       const deviation = Math.abs(value - center) / Math.abs(center);
-      if (deviation >= 0.1) {
+      if (deviation >= 0.05) {
         abnormalities.push({
           source: 'equipment performance',
           metric: column.replace(/\s+/g, ' ').trim(),
-          date: latestPerformance.Date,
+          date: formatTimestamp(latestPerformance.Date),
           latestReading: value,
           previousReadingsMedian: Number(center.toFixed(4)),
           deviationPercent: Number((deviation * 100).toFixed(1)),
-          level: deviation >= 0.25 ? 'high' : 'low',
-          rule: `latest value compared with median of previous ${previous.length} performance records; heuristic thresholds 10% warning and 25% high risk`,
+          level: deviation >= 0.25 ? 'high' : deviation >= 0.1 ? 'medium' : 'low',
+          rule: `latest value compared with median of previous ${previous.length} performance records; project screening bands: 5-10% low, 10-25% medium, 25%+ high risk`,
         });
       }
     }
@@ -269,7 +280,10 @@ export async function POST() {
   const evidence = machineData.map((machine) => ({
     machineId: machine.id,
     machineName: machine.name,
-    productionRows: machine.productionRows,
+    productionRows: machine.productionRows.map((row) => ({
+      ...row,
+      Timestamp: formatTimestamp(row.Timestamp),
+    })),
     typicalValues: Object.fromEntries(
       machine.tagRows.flatMap((tag) => {
         if (
@@ -282,7 +296,10 @@ export async function POST() {
         return [[tag.Name.slice(machine.prefix.length + 1), tag.typicalvalue]];
       }),
     ),
-    equipmentPerformanceRows: machine.performanceRows,
+    equipmentPerformanceRows: machine.performanceRows.map((row) => ({
+      ...row,
+      Date: formatTimestamp(row.Date),
+    })),
     detectedAbnormalities: findAbnormalities(
       machine.prefix,
       machine.productionRows,
@@ -294,13 +311,13 @@ export async function POST() {
   try {
     if (!insightGeneration) {
       insightGeneration = generateText({
-        model: google('gemini-3.8-flash'),
+        model: google('gemini-3.5-flash'),
         maxRetries: 0,
         output: Output.object({ schema: insightSchema }),
-        system: `You are an industrial equipment condition analyst producing cautious root-cause investigation suggestions for a university project. Analyze all five machines and all supplied production readings, tag typical values, and equipment-performance records. The detectedAbnormalities are simple screening flags only: typicalvalue deviation uses 10% for low risk and 25% for high risk; performance values compare the latest row to the median of previous rows using the same percentages. These are project heuristics, not engineering alarm limits. Do not describe a heuristic as a validated safety limit.
+        system: `You are an industrial equipment condition analyst producing cautious root-cause investigation suggestions for a university project. Analyze all five machines and all supplied production readings, tag typical values, and equipment-performance records. The detectedAbnormalities are simple screening flags only: 5-10% deviation is low risk, 10-25% is medium risk, and 25% or more is high risk. Performance records compare the latest row to the median of previous rows using the same bands. These are project heuristics, not engineering alarm limits. Do not describe a heuristic as a validated safety limit.
 
-Return concise plain-language findings in three groups. highRisk must only contain evidence flagged high; lowRisk must only contain evidence flagged low. recommendedActions may propose follow-up checks based on those findings, or recommend continued monitoring when no abnormalities are detected. Every finding must cite its machine and actual supplied metric/value/date; never invent observations, causes, limits, or data. If values are normal or data is missing, say so and do not fabricate a fault. Do not assume repairs, overhauls, cleaning, seal failures, or any maintenance history unless explicitly present in the supplied rows. Phrase suspected causes as items to inspect, not confirmed diagnoses. Recommendations are for human review and must never instruct automatic control changes, shutdowns, or bypassing safety systems. If RUN_STATUS is off, describe the machine as idle and not currently assessed.`,
-        prompt: `Review all machine data below and return evidence-based root-cause leads, grouped into highRisk, lowRisk, and recommendedActions. Do not force every group to have entries. If no data is abnormal, provide a recommended action to continue monitoring and say no abnormality was detected in the available window.\n\n${JSON.stringify(evidence)}`,
+Return concise plain-language findings in three groups: highRisk, mediumRisk, and lowRisk. Put each finding only in the matching group indicated by its detectedAbnormalities level. Include concrete inspection steps in each finding's action. Every finding must cite its machine and actual supplied metric/value/date; never invent observations, causes, limits, or data. If values are normal or data is missing, say so and do not fabricate a fault. Do not assume repairs, overhauls, cleaning, seal failures, or any maintenance history unless explicitly present in the supplied rows. Phrase suspected causes as items to inspect, not confirmed diagnoses. Actions are for human review and must never instruct automatic control changes, shutdowns, or bypassing safety systems. If RUN_STATUS is off, describe the machine as idle and not currently assessed.`,
+        prompt: `Review all machine data below and return evidence-based root-cause leads grouped into highRisk, mediumRisk, and lowRisk. Do not force findings into a risk group unless their evidence matches its band. Put any follow-up steps in the action field of each finding. If no deviations qualify, return empty risk groups. \n\n${JSON.stringify(evidence)}`,
       }).then(({ output }) => {
         if (!output) throw new Error('AI did not return structured root-cause insights.');
         return output;
@@ -311,7 +328,7 @@ Return concise plain-language findings in three groups. highRisk must only conta
     const payload: InsightPayload = {
       generatedAt: new Date().toISOString(),
       window: 'Latest 10 production readings and latest 10 weekly performance records per machine',
-      thresholds: 'Project heuristic only: 10% low-risk deviation, 25% high-risk deviation',
+      thresholds: 'Project heuristics only: 5-10% low risk, 10-25% medium risk, 25%+ high risk',
       insights,
     };
     cachedInsights = { expiresAt: Date.now() + 10 * 60 * 1000, payload };

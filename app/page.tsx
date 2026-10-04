@@ -17,7 +17,10 @@ export default function DashboardPage() {
       />
 
       {/* Main Content */}
-      <MainContent activeSection={activeSection} />
+      <MainContent
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+      />
 
     </div>
   );
