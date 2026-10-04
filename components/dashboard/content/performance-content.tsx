@@ -96,6 +96,11 @@ type RootCauseInsights = {
 };
 
 type RootCauseLevel = keyof RootCauseInsights;
+type AlertRiskLevel = "high" | "medium" | "low";
+type AlertSubmission =
+  | { state: "saving" }
+  | { state: "created" }
+  | { state: "error"; message: string };
 
 type RootCauseResponse = {
   generatedAt: string;
@@ -169,6 +174,10 @@ function isRootCauseFinding(value: unknown): value is RootCauseFinding {
     typeof value.evidence === "string" &&
     typeof value.action === "string"
   );
+}
+
+function alertSubmissionKey(item: RootCauseFinding): string {
+  return JSON.stringify([item.machineId, item.title, item.evidence]);
 }
 
 function isRootCauseResponse(value: unknown): value is RootCauseResponse {
@@ -345,6 +354,10 @@ export function PerformanceContent() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [alertsRefresh, setAlertsRefresh] = useState(0);
+  const [alertSubmissions, setAlertSubmissions] = useState<
+    Record<string, AlertSubmission>
+  >({});
   const [history, setHistory] = useState<DataRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -502,7 +515,7 @@ export function PerformanceContent() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [alertsRefresh]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -564,6 +577,49 @@ export function PerformanceContent() {
         (column) => !["Week", "Date", "Health Status", "Remark"].includes(column)
       )
     : [];
+
+  const createAlert = async (item: RootCauseFinding, riskLevel: AlertRiskLevel) => {
+    const key = alertSubmissionKey(item);
+    setAlertSubmissions((current) => ({ ...current, [key]: { state: "saving" } }));
+
+    try {
+      const response = await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          machineId: item.machineId,
+          riskLevel,
+          title: item.title,
+          evidence: item.evidence,
+          action: item.action,
+        }),
+      });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        const message =
+          isDataRow(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "Could not create the alert.";
+        throw new Error(message);
+      }
+
+      setAlertSubmissions((current) => ({
+        ...current,
+        [key]: { state: "created" },
+      }));
+      window.dispatchEvent(new Event("alerts:updated"));
+      setAlertsRefresh((current) => current + 1);
+    } catch (error) {
+      setAlertSubmissions((current) => ({
+        ...current,
+        [key]: {
+          state: "error",
+          message: error instanceof Error ? error.message : "Could not create the alert.",
+        },
+      }));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -802,6 +858,15 @@ export function PerformanceContent() {
                 }
                 tone={rootCauseLevel === "highRisk" ? "high" : rootCauseLevel === "mediumRisk" ? "medium" : "low"}
                 items={rootCause.insights[rootCauseLevel]}
+                riskLevel={
+                  rootCauseLevel === "highRisk"
+                    ? "high"
+                    : rootCauseLevel === "mediumRisk"
+                      ? "medium"
+                      : "low"
+                }
+                submissions={alertSubmissions}
+                onCreateAlert={createAlert}
               />
               <p className="mt-5 flex items-start gap-2 text-xs leading-5 text-[#45648d]">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#b57616]" />
@@ -939,11 +1004,17 @@ function RootCauseGroup({
   description,
   tone,
   items,
+  riskLevel,
+  submissions,
+  onCreateAlert,
 }: {
   title: string;
   description: string;
   tone: "high" | "medium" | "low";
   items: RootCauseFinding[];
+  riskLevel: AlertRiskLevel;
+  submissions: Record<string, AlertSubmission>;
+  onCreateAlert: (item: RootCauseFinding, riskLevel: AlertRiskLevel) => void;
 }) {
   const color =
     tone === "high"
@@ -973,9 +1044,11 @@ function RootCauseGroup({
         </p>
       ) : (
         <div className="mt-3 space-y-2">
-          {items.map((item, index) => (
+          {items.map((item) => {
+            const submission = submissions[alertSubmissionKey(item)];
+            return (
             <article
-              key={`${item.machineId}-${item.title}-${index}`}
+              key={alertSubmissionKey(item)}
               className="rounded-lg border border-[#dce7f7] bg-white p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -989,8 +1062,35 @@ function RootCauseGroup({
                 <span className="font-extrabold text-[#082f80]">Action: </span>
                 {item.action}
               </p>
+              <div className="mt-4 border-t border-[#edf2fa] pt-3">
+                <button
+                  type="button"
+                  onClick={() => onCreateAlert(item, riskLevel)}
+                  disabled={submission?.state === "saving" || submission?.state === "created"}
+                  className="rounded-lg bg-[#1257c7] px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#0b459e] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submission?.state === "saving"
+                    ? "Creating alert…"
+                    : submission?.state === "created"
+                      ? "Alert created"
+                      : submission?.state === "error"
+                        ? "Retry creating alert"
+                        : "Create alert"}
+                </button>
+                {submission?.state === "created" && (
+                  <p role="status" className="mt-2 text-xs font-medium text-[#27834f]">
+                    Saved to Alerts · Owner: Unassigned · Status: Unsolved
+                  </p>
+                )}
+                {submission?.state === "error" && (
+                  <p role="alert" className="mt-2 text-xs leading-5 text-red-700">
+                    {submission.message}
+                  </p>
+                )}
+              </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

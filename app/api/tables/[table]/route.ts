@@ -31,6 +31,7 @@ const TABLES: Record<string, string> = {
   'equipment-risk-incidents':
     'EQUIPMENT RELATED RISK — INCIDENT DATABASE (RCA & CAPA/PAA)',
   alerts: 'alerts',
+  employees: 'employees',
   machines: 'machines',
   incidents: 'incidents',
   'summary-status': 'summary_status',
@@ -120,7 +121,9 @@ export async function GET(
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   // Encode special characters so names with spaces, slashes, or Unicode remain one path segment.
-  let query = supabase.from(encodeURIComponent(table)).select('*');
+  const columns =
+    tableKey === 'employees' ? 'id,full_name,is_active' : '*';
+  let query = supabase.from(encodeURIComponent(table)).select(columns);
   if (tableKey.startsWith('production-rca')) {
     // terbaru dulu -> limit 100 = 100 data terakhir
     query = query.order('Timestamp', { ascending: false });

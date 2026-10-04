@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Factory,
   Gauge,
   MapPin,
   RefreshCw,
@@ -22,6 +22,7 @@ type DashboardMachine = {
   y: string;
   prefix: string;
   tableKey: string;
+  image: string;
 };
 
 type MachineSnapshot = {
@@ -45,11 +46,11 @@ type IncidentRow = {
 };
 
 const machines: DashboardMachine[] = [
-  { id: "BL-5702", name: "Product Blower", area: "Process bay", x: "24%", y: "32%", prefix: "BL5702", tableKey: "production-rca5-bl-5702" },
-  { id: "HE-3301", name: "Feed / Effluent Heat Exchanger", area: "Heat & utilities", x: "76%", y: "32%", prefix: "HE3301", tableKey: "production-rca4-he-3301" },
-  { id: "PM-4405B", name: "Cooling Water Pump", area: "Utilities bay", x: "81%", y: "72%", prefix: "PM4405B", tableKey: "production-rca3-pm-4405b" },
-  { id: "KO-3201", name: "Cracked Gas Compressor", area: "Compression bay", x: "35%", y: "72%", prefix: "KO3201", tableKey: "production-rca2-ko-3201" },
-  { id: "PU-2101B", name: "Feed Charge Pump", area: "Pump bay", x: "63%", y: "72%", prefix: "PU2101B", tableKey: "production-rca1-pu-2101b" },
+  { id: "BL-5702", name: "Product Blower", area: "Process bay", x: "25%", y: "50%", prefix: "BL5702", tableKey: "production-rca5-bl-5702", image: "/Product%20Blower.jpg" },
+  { id: "HE-3301", name: "Feed / Effluent Heat Exchanger", area: "Heat & utilities", x: "61%", y: "25%", prefix: "HE3301", tableKey: "production-rca4-he-3301", image: "/Effluent%20Heat%20Exchanger.jpg" },
+  { id: "PM-4405B", name: "Cooling Water Pump", area: "Utilities bay", x: "45%", y: "55%", prefix: "PM4405B", tableKey: "production-rca3-pm-4405b", image: "/cooling%20water%20pump.jpg" },
+  { id: "KO-3201", name: "Cracked Gas Compressor", area: "Compression bay", x: "67%", y: "57%", prefix: "KO3201", tableKey: "production-rca2-ko-3201", image: "/Cracked%20Gas%20Compressor.jpg" },
+  { id: "PU-2101B", name: "Feed Charge Pump", area: "Pump bay", x: "32%", y: "22%", prefix: "PU2101B", tableKey: "production-rca1-pu-2101b", image: "/feed%20charge%20pump.jpg" },
 ];
 
 const emptySnapshots = Object.fromEntries(
@@ -117,8 +118,8 @@ function isOpenAlert(alert: AlertRow): boolean {
 }
 
 function isActiveIncident(incident: IncidentRow): boolean {
-  return !/(solved|resolved|closed|complete|completed|cancelled)/i.test(
-    incident.status
+  return !["solved", "resolved", "closed", "complete", "completed", "cancelled"].includes(
+    normalized(incident.status)
   );
 }
 
@@ -326,27 +327,17 @@ export function OverviewContent({ onNavigate }: OverviewContentProps) {
             }}
           />
           <div className="relative h-[518px] overflow-hidden rounded-xl border-[10px] border-[#b6c3ce] bg-[#eff3f5] shadow-[inset_0_0_0_2px_#ffffff]">
-            <div className="absolute left-[5%] top-[8%] h-[37%] w-[39%] rounded-lg border-4 border-[#aab9c5] bg-[#d9e2e8] shadow-[inset_0_0_0_3px_#edf3f6]">
-              <span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Process bay</span>
-              <div className="absolute bottom-8 left-8 h-16 w-24 rounded border-2 border-[#aebdc8] bg-[#c4d1d9]" />
-              <div className="absolute bottom-10 right-8 h-20 w-14 rounded border-2 border-[#aebdc8] bg-[#c4d1d9]" />
+            <div className="absolute inset-[1%]">
+              <Image
+                src="/pabrik.jpeg"
+                alt="Plant A factory floor"
+                fill
+                priority
+                sizes="(min-width: 1280px) 70vw, 90vw"
+                className="object-contain"
+              />
             </div>
-            <div className="absolute right-[5%] top-[8%] h-[37%] w-[42%] rounded-lg border-4 border-[#aab9c5] bg-[#e2e9ed] shadow-[inset_0_0_0_3px_#f4f7f8]">
-              <span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Heat & utilities</span>
-              <div className="absolute bottom-8 left-8 h-12 w-20 rounded border-2 border-[#aebdc8] bg-[#cbd7de]" />
-              <div className="absolute bottom-8 right-10 h-16 w-16 rounded-full border-4 border-[#aebdc8] bg-[#d0dbe1]" />
-            </div>
-            <div className="absolute bottom-[8%] left-[5%] h-[38%] w-[43%] rounded-lg border-4 border-[#aab9c5] bg-[#e4eaed] shadow-[inset_0_0_0_3px_#f6f8f9]">
-              <span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Compression bay</span>
-              <div className="absolute bottom-8 left-8 h-14 w-28 rounded-full border-2 border-[#aebdc8] bg-[#cbd7de]" />
-              <div className="absolute bottom-8 right-10 h-14 w-20 rounded border-2 border-[#aebdc8] bg-[#cbd7de]" />
-            </div>
-            <div className="absolute bottom-[8%] right-[5%] h-[38%] w-[35%] rounded-lg border-4 border-[#aab9c5] bg-[#d9e3e8] shadow-[inset_0_0_0_3px_#edf3f6]">
-              <span className="absolute left-4 top-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#718397]">Pump bay</span>
-              <div className="absolute bottom-8 left-8 h-16 w-12 rounded-full border-4 border-[#aebdc8] bg-[#c6d3da]" />
-              <div className="absolute bottom-8 right-8 h-12 w-16 rounded border-2 border-[#aebdc8] bg-[#c6d3da]" />
-            </div>
-            <div className="absolute left-1/2 top-1/2 h-3/4 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#b7c7d2]" />
+            <div className="absolute inset-0 bg-[#082f80]/10" />
             {machines.map((machine) => {
               const snapshot = snapshots[machine.id];
               const machineAlerts = alerts
@@ -407,7 +398,14 @@ export function OverviewContent({ onNavigate }: OverviewContentProps) {
             </span>
           </div>
           <div className="my-5 flex h-28 items-center justify-center rounded-xl bg-[#eff3f7]">
-            <Factory className="h-16 w-16 text-[#8fa3b7]" />
+            <Image
+              src={selected.image}
+              alt={selected.name}
+              width={240}
+              height={120}
+              sizes="240px"
+              className="h-full w-full rounded-xl object-contain"
+            />
           </div>
           {selectedSnapshot?.error && (
             <p role="alert" className="mb-3 rounded-lg bg-[#fff0f0] p-3 text-xs leading-5 text-[#a8323e]">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Section } from "@/app/page";
 import {
@@ -20,23 +21,95 @@ interface AppSidebarProps {
   onSectionChange: (section: Section) => void;
 }
 
+type BadgeCounts = {
+  alerts: number | null;
+  insights: number | null;
+};
+
 interface NavItem {
   id: Section;
   label: string;
   icon: LucideIcon;
   badge?: number;
-  badgeColor?: "red" | "yellow" | "green";
+  badgeColor?: "red" | "yellow" | "green" | "blue";
 }
 
 const mainMenu: NavItem[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard },
   { id: "equipment", label: "Equipment", icon: Factory },
-  { id: "alerts", label: "Alerts", icon: Bell, badge: 3, badgeColor: "red" },
-  { id: "incidents", label: "Incidents", icon: AlertTriangle, badge: 3, badgeColor: "red" },
-  { id: "insights", label: "Insights", icon: Lightbulb },
+  { id: "alerts", label: "Alerts", badgeColor: "red", icon: Bell },
+  { id: "insights", label: "Insights", badgeColor: "blue", icon: Lightbulb },
+  { id: "incidents", label: "Incidents", icon: AlertTriangle, badgeColor: "red" },
 ];
 
 export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) {
+  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({
+    alerts: null,
+    insights: null,
+  });
+
+  const refreshBadges = useCallback(async () => {
+    const [alertsResult, insightsResult] = await Promise.allSettled([
+      fetch("/api/alerts", { cache: "no-store" }),
+      fetch("/api/insights/root-cause", { cache: "no-store" }),
+    ]);
+
+    const parseCount = async (
+      result: PromiseSettledResult<Response>,
+      key: "count" | "total"
+    ): Promise<number | null> => {
+      if (result.status !== "fulfilled" || !result.value.ok) return null;
+      try {
+        const payload: unknown = await result.value.json();
+        if (typeof payload !== "object" || payload === null) return null;
+        const value =
+          key === "count" && "count" in payload
+            ? payload.count
+            : key === "total" && "total" in payload
+              ? payload.total
+              : null;
+        return typeof value === "number" &&
+          Number.isSafeInteger(value) &&
+          value >= 0
+          ? value
+          : null;
+      } catch (error) {
+        console.error("Could not read navigation badge count.", error);
+      }
+      return null;
+    };
+
+    const [alerts, insights] = await Promise.all([
+      parseCount(alertsResult, "count"),
+      parseCount(insightsResult, "total"),
+    ]);
+
+    setBadgeCounts((current) => ({
+      alerts: alerts ?? current.alerts,
+      insights: insights ?? current.insights,
+    }));
+  }, []);
+
+  useEffect(() => {
+    void refreshBadges();
+    const interval = window.setInterval(() => void refreshBadges(), 60_000);
+    window.addEventListener("alerts:updated", refreshBadges);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("alerts:updated", refreshBadges);
+    };
+  }, [refreshBadges]);
+
+  const navItems = mainMenu.map((item) => ({
+    ...item,
+    badge:
+      item.id === "alerts"
+        ? badgeCounts.alerts ?? undefined
+        : item.id === "insights"
+          ? badgeCounts.insights ?? undefined
+          : item.badge,
+  }));
+
   return (
     <aside className="w-[218px] h-screen bg-[#082f80] border-r border-[#17499b] flex flex-col shrink-0">
       {/* Logo */}
@@ -72,7 +145,7 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
           Production line
         </p>
         <nav className="space-y-0.5">
-          {mainMenu.map((item) => (
+          {navItems.map((item) => (
             <NavButton
               key={item.id}
               item={item}
@@ -121,6 +194,7 @@ function NavButton({ item, isActive, onClick }: NavButtonProps) {
     red: "bg-destructive/15 text-destructive",
     yellow: "bg-warning/20 text-warning",
     green: "bg-success/15 text-success",
+    blue: "bg-[#dbeafe] text-[#082f80]",
   };
 
   return (
@@ -137,7 +211,7 @@ function NavButton({ item, isActive, onClick }: NavButtonProps) {
     >
       <Icon className="w-[18px] h-[18px] shrink-0" />
       <span className="flex-1 text-left">{item.label}</span>
-      {item.badge && (
+      {item.badge !== undefined && item.badge !== null && item.badge > 0 && (
         <span
           className={cn(
             "text-xs font-medium px-2 py-0.5 rounded-full",

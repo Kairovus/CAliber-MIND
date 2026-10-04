@@ -85,6 +85,9 @@ type InsightPayload = {
 
 let cachedInsights: { expiresAt: number; payload: InsightPayload } | null = null;
 let insightGeneration: Promise<z.infer<typeof insightSchema>> | null = null;
+let cachedRiskCounts:
+  | { expiresAt: number; high: number; low: number }
+  | null = null;
 
 function formatTimestamp(value: unknown): unknown {
   if (typeof value !== 'string') return value;
@@ -199,6 +202,104 @@ function json(body: unknown, status = 200) {
     status,
     headers: { 'Cache-Control': 'no-store' },
   });
+}
+
+export async function GET() {
+  if (cachedRiskCounts && cachedRiskCounts.expiresAt > Date.now()) {
+    return json({
+      high: cachedRiskCounts.high,
+      low: cachedRiskCounts.low,
+      total: cachedRiskCounts.high + cachedRiskCounts.low,
+    });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Root-cause risk count API is missing its public Supabase environment variables.');
+    return json({ error: 'Supabase is not configured on the server.' }, 500);
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    const counts = await Promise.all(
+      machines.map(async (machine) => {
+        const [productionResult, performanceResult, tagResult] =
+          await Promise.all([
+            supabase
+              .from(encodeURIComponent(machine.production))
+              .select('*')
+              .order('Timestamp', { ascending: false })
+              .limit(10),
+            supabase
+              .from(encodeURIComponent(machine.performance))
+              .select('*')
+              .order('Date', { ascending: false })
+              .limit(10),
+            supabase.from(encodeURIComponent(machine.tags)).select('*'),
+          ]);
+
+        const errors = [
+          productionResult.error,
+          performanceResult.error,
+          tagResult.error,
+        ].filter((error) => error !== null);
+        if (errors.length > 0) {
+          console.error('Unable to load source data for Insights navigation badge.', {
+            machineId: machine.id,
+            errors: errors.map(({ code, message }) => ({ code, message })),
+          });
+          throw new Error(`Unable to read insight source data for ${machine.id}.`);
+        }
+
+        return findAbnormalities(
+          machine.prefix,
+          productionResult.data ?? [],
+          performanceResult.data ?? [],
+          tagResult.data ?? [],
+        );
+      }),
+    );
+
+    const uniqueSignals = new Map<string, 'high' | 'low'>();
+    counts.forEach((abnormalities, index) => {
+      for (const item of abnormalities) {
+        if (
+          (item.level === 'high' || item.level === 'low') &&
+          typeof item.metric === 'string'
+        ) {
+          uniqueSignals.set(
+            `${machines[index].id}:${item.level}:${item.source}:${item.metric}`,
+            item.level,
+          );
+        }
+      }
+    });
+    const signals = [...uniqueSignals.values()];
+    const high = signals.filter((level) => level === 'high').length;
+    const low = signals.filter((level) => level === 'low').length;
+    cachedRiskCounts = {
+      expiresAt: Date.now() + 60 * 1000,
+      high,
+      low,
+    };
+
+    return json({ high, low, total: high + low });
+  } catch (error) {
+    console.error('Unable to calculate Insights navigation badge.', error);
+    return json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Unable to calculate insight risk counts.',
+      },
+      502,
+    );
+  }
 }
 
 export async function POST() {

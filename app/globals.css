@@ -6,17 +6,17 @@
 :root {
   /* Production operations palette: navy, cobalt, cyan, sky, and periwinkle */
   --background: oklch(0.972 0.012 250);
-  --foreground: oklch(0.24 0.08 255);
+  --foreground: oklch(0.2 0.1 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.08 255);
+  --card-foreground: oklch(0.2 0.1 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.08 255);
+  --popover-foreground: oklch(0.2 0.1 255);
   --primary: oklch(0.48 0.2 255);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.94 0.04 250);
   --secondary-foreground: oklch(0.3 0.1 255);
   --muted: oklch(0.95 0.018 250);
-  --muted-foreground: oklch(0.56 0.06 250);
+  --muted-foreground: oklch(0.38 0.09 255);
   --accent: oklch(0.62 0.19 225);
   --accent-foreground: oklch(0.2 0.1 255);
   --destructive: oklch(0.6 0.2 25);
@@ -104,6 +104,23 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Keep secondary text readable while preserving the blue-navy dashboard palette. */
+[class~="text-[#7890b2]"] { color: #25466f; }
+[class~="text-[#8aa0bd]"],
+[class~="text-[#9aadc5]"],
+[class~="text-[#718397]"] { color: #365477; }
+[class~="text-[#718198]"],
+[class~="text-[#6c83a4]"],
+[class~="text-[#62748a]"],
+[class~="text-[#536a82]"],
+[class~="text-[#8290a3]"],
+[class~="text-[#8492a5]"],
+[class~="text-[#7c8ca2]"] { color: #294a70; }
+[class~="text-[#45648d]"],
+[class~="text-[#365477]"] { color: #1d3d66; }
+[class~="text-[#5f7896]"] { color: #23466f; }
+[class~="text-[#5c8ce8]"] { color: #1257c7; }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
