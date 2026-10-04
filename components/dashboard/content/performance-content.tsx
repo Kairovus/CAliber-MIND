@@ -985,8 +985,8 @@ function RootCauseGroup({
                 <h5 className="text-sm font-bold leading-5 text-[#082f80]">{item.title}</h5>
               </div>
               <p className="mt-3 text-sm leading-6 text-[#365477]">{item.evidence}</p>
-              <p className="mt-3 border-t border-[#dce7f7] pt-3 text-sm leading-6 text-[#173e82]">
-                <span className="font-bold text-[#082f80]">Action: </span>
+              <p className="mt-3 border-t border-[#dce7f7] pt-3 text-base font-semibold leading-7 text-[#173e82]">
+                <span className="font-extrabold text-[#082f80]">Action: </span>
                 {item.action}
               </p>
             </article>
