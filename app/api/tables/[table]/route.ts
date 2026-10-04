@@ -119,10 +119,15 @@ export async function GET(
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  let query = supabase.from(table).select('*');
+  // Encode special characters so names with spaces, slashes, or Unicode remain one path segment.
+  let query = supabase.from(encodeURIComponent(table)).select('*');
   if (tableKey.startsWith('production-rca')) {
     // terbaru dulu -> limit 100 = 100 data terakhir
     query = query.order('Timestamp', { ascending: false });
+  } else if (tableKey.startsWith('equipment-performance-')) {
+    query = query.order('Date', { ascending: false });
+  } else if (tableKey === 'alerts') {
+    query = query.order('time_stamp', { ascending: false });
   }
 
   const t0 = performance.now();

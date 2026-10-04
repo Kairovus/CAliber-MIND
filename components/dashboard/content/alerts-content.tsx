@@ -13,7 +13,7 @@ type Alert = {
     alert_status: "info" | "warning" | "critical";
     recommended_action: string | null;
     assign_staf: string | null;
-    status: "unsolved" | "in_progress" | "solved" | "resolved";
+    status: "unsolved" | "in_progress" | "solved";
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -24,7 +24,7 @@ const supabaseKey =
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 function isSolved(status: Alert["status"]) {
-    return status === "solved" || status === "resolved";
+    return status === "solved";
 }
 
 function displayStatus(status: Alert["status"]) {

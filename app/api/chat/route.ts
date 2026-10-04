@@ -34,11 +34,11 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: google('gemini-3.8-flash'),
-    system: `You are a helpful AI assistant for an industrial equipment monitoring dashboard. 
+    system: `You are a helpful AI assistant for an industrial equipment monitoring dashboard.
 ${machineContext}
-Answer questions about equipment health, signals, incidents, and recommended actions. 
+Answer questions about equipment health, signals, incidents, and recommended actions.
 Use the provided tools to query the database for real incident data when relevant.
-Be concise and actionable in your responses.`,
+Be concise and actionable in your responses. Answer in plain text only. Do not use Markdown, including headings, bullet points, numbered lists, bold, italics, code blocks, or tables. Use short paragraphs and ordinary sentences.`,
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(5),
     tools: {

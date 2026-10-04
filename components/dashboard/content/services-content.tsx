@@ -132,7 +132,7 @@ export function ServicesContent() {
     error: null,
   });
   const [message, setMessage] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -295,7 +295,10 @@ export function ServicesContent() {
   }, [selectedMachine]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    chatMessagesRef.current?.scrollTo({
+      top: chatMessagesRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, status]);
 
   function send(text: string) {
@@ -483,7 +486,7 @@ export function ServicesContent() {
           </section>
         </div>
 
-        <aside className="flex min-h-[560px] flex-col rounded-2xl border border-[#dce7f7] bg-white shadow-[0_8px_24px_rgba(8,47,128,0.06)]">
+        <aside className="flex h-[min(70vh,760px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-[#dce7f7] bg-white shadow-[0_8px_24px_rgba(8,47,128,0.06)]">
           <div className="flex items-center gap-3 border-b border-[#edf2fa] p-5">
             <div className="rounded-xl bg-[#1257c7] p-2.5 text-white"><Bot className="h-5 w-5" /></div>
             <div>
@@ -499,7 +502,10 @@ export function ServicesContent() {
             )}
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          <div
+            ref={chatMessagesRef}
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4"
+          >
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
                 ⚠ AI error: {error.message}. Please try again.
@@ -548,7 +554,6 @@ export function ServicesContent() {
                 ))}
               </div>
             </div>
-            <div ref={bottomRef} />
           </div>
 
           <form onSubmit={handleSubmit} className="border-t border-[#edf2fa] p-4">
